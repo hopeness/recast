@@ -26,66 +26,77 @@
 import { Env } from './types';
 import Dispatcher from './dispatcher';
 
-
 // Cache Storage instance for Cloudflare Workers
 const cache = (caches as any).default;
 
 export default {
     async fetch(request: Request, env: Env): Promise<Response> {
-        if (!['GET', 'HEAD'].includes(request.method)) {
-            return new Response(null, {
-                status: 405,
-                statusText: "Method Not Allowed"
-            });
-        }
-
-        const dispatcher = new Dispatcher(request, env);
-
-        const cacheRequest = new Request(await dispatcher.geCacheURL(), request);
-        const lastResponse: Response = await cache.match(cacheRequest);
-        if (lastResponse) {
-            return lastResponse;
-        }
+        try {
+            if (!['GET', 'HEAD'].includes(request.method)) {
+                return new Response(null, {
+                    status: 405,
+                    statusText: 'Method Not Allowed'
+                });
+            }
         
-        const fetcher = dispatcher.getFetcher()
-        const [fetcherRequest, fetcherResponse] = await fetcher.fetch();
+            const dispatcher = new Dispatcher(request, env);
 
-        if (fetcherResponse.status == 304) {
-            return new Response(null, {
-                headers: fetcherResponse.headers,
+            // Check if the response cached
+            const cacheRequest = new Request(dispatcher.geCacheURL(), request);
+            const lastResponse: Response = await cache.match(cacheRequest);
+            if (lastResponse) {
+                return lastResponse;
+            }
+            
+            const fetcher = dispatcher.getFetcher();
+            const handler = dispatcher.getHandler();
+            
+
+            // Check if the original fetch response cachecd
+            const fetcherRequest = await fetcher.getRequest();
+            if (fetcherRequest == null) {
+                return new Response(null, {
+                    status: 500,
+                    statusText: 'Internal Server Error'
+                });
+            }
+            let fetcherResponse: Response = await cache.match(fetcherRequest);
+            if (!fetcherResponse) {
+                fetcherResponse = await fetcher.fetch();
+                // Cache the original fetch response
+                await cache.put(fetcherRequest, fetcherResponse.clone());
+            }
+
+            // Set Content-Type
+            const newHeaders = new Headers(fetcherResponse.headers);
+            newHeaders.set('Content-Type', 'image/jpeg'); // handler.getMIME().mime
+            newHeaders.set('Cache-Control', 'public, max-age=3600');
+
+            if (fetcherResponse.status !== 200 || request.method === 'HEAD') {
+                const response = new Response(null, {
+                    status: fetcherResponse.status,
+                    statusText: fetcherResponse.statusText,
+                    headers: newHeaders,
+                });
+                await cache.put(cacheRequest, response.clone());
+                return response;
+            }
+            
+            const handlerResponse = await handler.handle(fetcherRequest as Request, fetcherResponse);
+
+            let response = new Response(handlerResponse, {
                 status: fetcherResponse.status,
-                statusText: fetcherResponse.statusText
+                statusText: fetcherResponse.statusText,
+                headers: newHeaders
             });
+            await cache.put(cacheRequest, response.clone());
+            return response;
+        } catch (error) {
+            console.log(`Error: ${error.message}`);
+            console.log('Error stack:', error.stack);
+            console.log('Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+            return new Response('Internal Server Error', { status: 500 });
         }
-
-        const requestMethod = request.method;
-        if (requestMethod === 'HEAD') {
-            // Original request was HEAD, so return a new Response without a body
-            return new Response(null, {
-                headers: fetcherResponse.headers,
-                status: fetcherResponse.status,
-                statusText: fetcherResponse.statusText
-            });
-        }
-
-        const handler = dispatcher.getHandler()
-        const handlerResponse = await handler.handle(fetcherRequest, fetcherResponse);
-
-        // 设置 Content-Type
-        const newHeaders = new Headers(fetcherResponse.headers);
-        newHeaders.set('Content-Type', handler.getMIME().mime);
-        newHeaders.set('Cache-Control', 'public, max-age=2592000');
-
-        let response = new Response(handlerResponse, {
-            status: fetcherResponse.status,
-            statusText: fetcherResponse.statusText,
-            headers: newHeaders
-        });
-
-        // 将处理过的响应放入缓存
-        await cache.put(cacheRequest, response.clone());
-
-        // 返回新的响应
-        return response;
     }
 };
+

@@ -1,7 +1,8 @@
 import { Env, CacheParams, MIMEPair } from './types';
 
 export interface FetcherInterface {
-    getCacheParams(): Promise<CacheParams>;
-    fetch():  Promise<[Request, Response]>;
+    getCacheParams(): CacheParams;
+    getRequest(): Promise<Request | null>;
+    fetch():  Promise<Response>;
     getMIME(): MIMEPair;
 }

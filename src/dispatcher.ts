@@ -7,7 +7,6 @@ import ImageHandler from './handler-image';
 import UnknownHandler from './handler-unknown';
 import { getMime } from './tools.ts';
 
-
 export default class Dispatcher {
     private request: Request;
     private env: Env;
@@ -44,19 +43,23 @@ export default class Dispatcher {
         return this.handler;
     }
 
-    public async geCacheURL(): Promise<string> {
-        const fetcherParams = await this.fetcher.getCacheParams();
-        const handlerParams = await this.handler.getCacheParams();
-        let combinedParams = {...fetcherParams, ...handlerParams};
-        const sortedKeys = Object.keys(combinedParams).sort();
-        const query: string[] = [];
-        for (const key of sortedKeys) {
-            query.push(`${key}=${encodeURIComponent(combinedParams[key])}`);
+    public geCacheURL(): string {
+        try {
+            const fetcherParams = this.fetcher.getCacheParams();
+            const handlerParams = this.handler.getCacheParams();
+            let combinedParams = {...fetcherParams, ...handlerParams};
+            const sortedKeys = Object.keys(combinedParams).sort();
+            const query: string[] = [];
+            for (const key of sortedKeys) {
+                query.push(`${key}=${encodeURIComponent(combinedParams[key])}`);
+            }
+            const queryString = query.join('&');
+            const url = new URL(this.request.url);
+            url.search = queryString;
+            return url.toString();
+        } catch (error) {
+            console.error('Error generating cache URL:', error);
+            throw error;
         }
-        const queryString = query.join('&');
-        const url = new URL(this.request.url);
-        url.search = queryString;
-        return url.toString();
     }
-    
 }

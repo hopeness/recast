@@ -13,6 +13,7 @@ export default class S3Fetcher implements FetcherInterface {
 
     private request: Request;
     private env: Env;
+    private signedRequest: Request;
 
     private rangeEntryAttempts = 3;
 
@@ -31,19 +32,17 @@ export default class S3Fetcher implements FetcherInterface {
         this.env = env;
     }
 
-    public async getCacheParams(): Promise<CacheParams> {
+    public getCacheParams(): CacheParams {
         return {};
     }
 
-    public async fetch(): Promise<[Request, Response]> {
+    public async getRequest(): Promise<Request | null> {
         const url = new URL(this.request.url);
         // Incoming protocol and port is taken from the worker's environment.
         // Local dev mode uses plain http on 8787, and it's possible to deploy
         // a worker on plain http. B2 only supports https on 443
         url.protocol = 'https';
         url.port = '443';
-
-        const params = new URLSearchParams(url.search);
 
         // Remove leading and trailing slashes from path
         let path = url.pathname.substring(1, url.pathname.length);
@@ -56,10 +55,7 @@ export default class S3Fetcher implements FetcherInterface {
             // Don't allow list bucket requests
             if ((this.env['BUCKET_NAME'] === '$path' && pathSegments.length < 2) ||
                 (this.env['BUCKET_NAME'] !== '$path' && path.length === 0)) {
-                return [this.request, new Response(null, {
-                    status: 404,
-                    statusText: 'Not Found'
-                })];
+                return null;
             }
         }
 
@@ -90,15 +86,12 @@ export default class S3Fetcher implements FetcherInterface {
             service: 's3',
         });
 
-        // Save the request method, so we can process responses for HEAD requests appropriately
-        const requestMethod = this.request.method;
-
         // Sign the outgoing request
         //
         // For HEAD requests Cloudflare appears to change the method on the outgoing request to GET (#18), which
         // breaks the signature, resulting in a 403. So, change all HEADs to GETs. This is not too inefficient,
         // since we won't read the body of the response if the original request was a HEAD.
-        const signedRequest = await client.sign(url.toString(), {
+        this.signedRequest = await client.sign(url.toString(), {
             method: 'GET',
             headers: headers
         });
@@ -107,26 +100,26 @@ export default class S3Fetcher implements FetcherInterface {
         // So, if there is a range header in the request, check that the response contains the
         // content-range header. If not, abort the request and try again.
         // See https://community.cloudflare.com/t/cloudflare-worker-fetch-ignores-byte-request-range-on-initial-request/395047/4
-        if (signedRequest.headers.has('range')) {
+        if (this.signedRequest.headers.has('range')) {
             let attempts = this.rangeEntryAttempts;
             let response: Response;
             do {
                 let controller = new AbortController();
-                response = await fetch(signedRequest.url, {
-                    method: signedRequest.method,
-                    headers: signedRequest.headers,
+                response = await fetch(this.signedRequest.url, {
+                    method: this.signedRequest.method,
+                    headers: this.signedRequest.headers,
                     signal: controller.signal,
                 });
                 if (response.headers.has('content-range')) {
                     // Only log if it didn't work first time
                     if (attempts < this.rangeEntryAttempts) {
-                        console.log(`Retry for ${signedRequest.url} succeeded - response has content-range header`);
+                        console.log(`Retry for ${this.signedRequest.url} succeeded - response has content-range header`);
                     }
                     // Break out of loop and return the response
                     break;
                 } else if (response.ok) {
                     attempts -= 1;
-                    console.error(`Range header in request for ${signedRequest.url} but no content-range header in response. Will retry ${attempts} more times`);
+                    console.error(`Range header in request for ${this.signedRequest.url} but no content-range header in response. Will retry ${attempts} more times`);
                     if (attempts > 0) {
                         controller.abort();
                     }
@@ -137,17 +130,18 @@ export default class S3Fetcher implements FetcherInterface {
             } while (attempts > 0);
 
             if (attempts <= 0) {
-                console.error(`Tried range request for ${signedRequest.url} ${this.rangeEntryAttempts} times, but no content-range in response.`);
+                console.error(`Tried range request for ${this.signedRequest.url} ${this.rangeEntryAttempts} times, but no content-range in response.`);
             }
-
-            // Return whatever response we have rather than an error response
-            // This response cannot be aborted, otherwise it will raise an exception
-            return [signedRequest, response]!;
         }
+        return this.signedRequest;
+    }
+
+    public async fetch(): Promise<Response> {
+        
 
         // Send the signed request to B2
-        const s3Response = await fetch(signedRequest);
-        return [signedRequest, s3Response];
+        const s3Response = await fetch(this.signedRequest);
+        return s3Response;
     }
 
     public getMIME(): MIMEPair {

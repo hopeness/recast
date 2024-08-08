@@ -5,17 +5,23 @@ import { Env, CacheParams, MIMEPair } from './types.ts';
 
 
 export default class URLFetcher implements FetcherInterface {
+
+    private request: Request;
     
     public constructor(request: Request, env: Env) {
-
+        this.request = request;
     }
 
-    public async getCacheParams(): Promise<CacheParams> {
+    public getCacheParams(): CacheParams {
         return {};
     }
 
-    public async fetch(): Promise<[Request, Response]> {
-        return [new Request(''), new Response()];
+    public async getRequest(): Promise<Request> {
+        return this.request;
+    }
+
+    public async fetch(): Promise<Response> {
+        return new Response();
     }
 
     public getMIME(): MIMEPair {

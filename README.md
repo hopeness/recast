@@ -4,6 +4,13 @@
 
 **_This open source code is under activate development, please use it with caution in production service._**
 
+## Problems
+
+1. When the original image size larger than 1m, the Photon library will throw an error on the following code:
+   let photonObj = PhotonImage.new_from_byteslice(image);
+
+    `Error: Promise will never complete.`
+
 ## Open source libraries used
 
 This project uses the following open source libraries, all of which are based on the MIT license agreement:

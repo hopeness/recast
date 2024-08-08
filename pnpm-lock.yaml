@@ -11,6 +11,15 @@ importers:
       '@cf-wasm/photon':
         specifier: ^0.1.23
         version: 0.1.23
+      '@jsquash/jpeg':
+        specifier: ^1.4.0
+        version: 1.4.0
+      '@jsquash/png':
+        specifier: ^3.0.1
+        version: 3.0.1
+      '@jsquash/webp':
+        specifier: ^1.4.0
+        version: 1.4.0
       aws4fetch:
         specifier: ^1.0.19
         version: 1.0.19
@@ -23,8 +32,20 @@ packages:
   '@cf-wasm/photon@0.1.23':
     resolution: {integrity: sha512-2cTINrmXiJchs0QGCOezKq+yLHykZw1Pc/SmlqQQrG7eQCzBmx1MH9Pa9KvpGehslUynutTSWooP5v8QcRoAxw==}
 
+  '@jsquash/jpeg@1.4.0':
+    resolution: {integrity: sha512-I/uGQ5Gk3qOEQNufUcR9boZ0qH+eoXW7cp0mW9eNInlgjRXwEhepvfbnutQ+RM1dNeuIHoOM5YVCEK1y/ATipQ==}
+
+  '@jsquash/png@3.0.1':
+    resolution: {integrity: sha512-Bnvv93Y5LL92cuk2r2gpV+9JKuDo2/w7bOODw1iPxk8VARknky0sS1tSDgMosUdhNb4CdMlcCm3TMzTaqa3zZw==}
+
+  '@jsquash/webp@1.4.0':
+    resolution: {integrity: sha512-yKJb6Hilq+qV/4C4qTDEalBobNwJO09LeHHtilmWg5mYHFUDwMunfeAap/r3cL5KsHkGOoI0IjY2nKbTaHq9Bw==}
+
   aws4fetch@1.0.19:
     resolution: {integrity: sha512-N+F8pZ9hVjckkHODDyalITRNxBJxAGX5ShkVoAgHwqERXsW8Iu5ziFx3SCjGlxx/YStWBTZx4HI/GCMvTBu5kQ==}
+
+  wasm-feature-detect@1.6.2:
+    resolution: {integrity: sha512-4dnaZ+Fq/q+BbMlTIfaNS851i+0zmHzui++NUZdskESRu3xwB6g6x2FnGvBdWtpijqO5yuj1l+EUTJGc4S4DKg==}
 
 snapshots:
 
@@ -34,4 +55,14 @@ snapshots:
     dependencies:
       '@cf-wasm/internals': 0.0.2
 
+  '@jsquash/jpeg@1.4.0': {}
+
+  '@jsquash/png@3.0.1': {}
+
+  '@jsquash/webp@1.4.0':
+    dependencies:
+      wasm-feature-detect: 1.6.2
+
   aws4fetch@1.0.19: {}
+
+  wasm-feature-detect@1.6.2: {}

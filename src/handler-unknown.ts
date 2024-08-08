@@ -8,7 +8,7 @@ export default class UnknownHandler implements HandlerInterface {
 
     }
 
-    public async getCacheParams(): Promise<CacheParams> {
+    public getCacheParams(): CacheParams {
         return {};
     }
 
