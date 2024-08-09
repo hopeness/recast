@@ -69,7 +69,7 @@ export default {
 
             // Set Content-Type
             const newHeaders = new Headers(fetcherResponse.headers);
-            newHeaders.set('Content-Type', 'image/jpeg'); // handler.getMIME().mime
+            newHeaders.set('Content-Type', handler.getMIME().mime);
             newHeaders.set('Cache-Control', 'public, max-age=3600');
 
             if (fetcherResponse.status !== 200 || request.method === 'HEAD') {
