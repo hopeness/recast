@@ -31,6 +31,8 @@ const cache = (caches as any).default;
 
 export default {
     async fetch(request: Request, env: Env): Promise<Response> {
+        let response: Response | null;
+        let handlerResponse: Uint8Array | null;
         try {
             if (!['GET', 'HEAD'].includes(request.method)) {
                 return new Response(null, {
@@ -50,7 +52,6 @@ export default {
             
             const fetcher = dispatcher.getFetcher();
             const handler = dispatcher.getHandler();
-            
 
             // Check if the original fetch response cachecd
             const fetcherRequest = await fetcher.getRequest();
@@ -60,6 +61,7 @@ export default {
                     statusText: 'Internal Server Error'
                 });
             }
+
             let fetcherResponse: Response = await cache.match(fetcherRequest);
             if (!fetcherResponse) {
                 fetcherResponse = await fetcher.fetch();
@@ -73,7 +75,7 @@ export default {
             newHeaders.set('Cache-Control', 'public, max-age=3600');
 
             if (fetcherResponse.status !== 200 || request.method === 'HEAD') {
-                const response = new Response(null, {
+                response = new Response(null, {
                     status: fetcherResponse.status,
                     statusText: fetcherResponse.statusText,
                     headers: newHeaders,
@@ -82,13 +84,14 @@ export default {
                 return response;
             }
             
-            const handlerResponse = await handler.handle(fetcherRequest as Request, fetcherResponse);
+            handlerResponse = await handler.handle(fetcherRequest as Request, fetcherResponse);
 
-            let response = new Response(handlerResponse, {
+            response = new Response(handlerResponse, {
                 status: fetcherResponse.status,
                 statusText: fetcherResponse.statusText,
                 headers: newHeaders
             });
+            handlerResponse = null;
             await cache.put(cacheRequest, response.clone());
             return response;
         } catch (error) {
@@ -96,6 +99,9 @@ export default {
             console.log('Error stack:', error.stack);
             console.log('Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
             return new Response('Internal Server Error', { status: 500 });
+        } finally {
+            response = null;
+            
         }
     }
 };

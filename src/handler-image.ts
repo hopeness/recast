@@ -86,7 +86,7 @@ export default class ImageHandler implements HandlerInterface {
             }
         }
         for (const [name, value] of params) {
-            if (!(name in this.imageParamsFilter)) continue;
+            if (!(name in this.imageParamsFilter) || name in this.paramsAlias) continue;
             let paramValue = this.imageParamsFilter[name](value);
             imageParams[name] = paramValue;
         }
@@ -164,6 +164,8 @@ export default class ImageHandler implements HandlerInterface {
                 }
             }
             image = photonObj.get_bytes_jpeg(this.imageParams['q'] || 85);
+
+            photonObj.free();
 
             // Quality
             // await initPngDecode(PNG_DEC_WASM);

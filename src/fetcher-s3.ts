@@ -6,7 +6,7 @@
 import { AwsClient } from 'aws4fetch';
 
 import { FetcherInterface } from './fetcher.ts';
-import { Env, CacheParams, MIMEPair } from './types.ts';
+import { Env, CacheParams, ImageParams, MIMEPair } from './types';
 
 
 export default class S3Fetcher implements FetcherInterface {
@@ -14,6 +14,14 @@ export default class S3Fetcher implements FetcherInterface {
     private request: Request;
     private env: Env;
     private signedRequest: Request;
+
+    private preset: {[key: string]: boolean} = {
+        'tiny': true,
+        'thumb': true,
+        'small': true,
+        'medium': true,
+        'large': true,
+    }
 
     private rangeEntryAttempts = 3;
 
@@ -48,6 +56,17 @@ export default class S3Fetcher implements FetcherInterface {
         let path = url.pathname.substring(1, url.pathname.length);
         if (path.endsWith('/'))
             path = path.substring(0, path.length - 1);
+
+        // Check if exists preset image
+        const params = new URLSearchParams(url.search);
+        const preset = params.get('preset');
+        if (preset !== null && preset in this.preset) {
+            const baseName = this.getBaseName(path);
+            const extName = this.getFileExtension(path);
+            path = `${baseName}-${preset}.${extName}`;
+            url.pathname = path;
+        }
+
         // Split the path into segments
         const pathSegments = path.split('/');
 
@@ -137,8 +156,6 @@ export default class S3Fetcher implements FetcherInterface {
     }
 
     public async fetch(): Promise<Response> {
-        
-
         // Send the signed request to B2
         const s3Response = await fetch(this.signedRequest);
         return s3Response;
@@ -161,6 +178,15 @@ export default class S3Fetcher implements FetcherInterface {
     private filterParams() {
         const url = new URL(this.request.url);
         const params = new URLSearchParams(url.search);
+    }
+
+    private getFileExtension(fileName: string): string {
+        const ext = fileName.slice(((fileName.lastIndexOf('.') - 1) >>> 0) + 2);
+        return ext ? `${ext}` : '';
+    }
+
+    private getBaseName(fileName: string): string {
+        return fileName.slice(0, ((fileName.lastIndexOf('.') - 1) >>> 0) + 1);
     }
 
 }
